@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 移动端视口优化：确保手机App内正常显示，禁止缩放可提升体验但可选 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>AI骨折诊断·移动助手</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background-color: #0b1120;
+            color: #e2e8f0;
+        }
+
+        /* 主容器 - 移动优先，无复杂宽高限制 */
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #1e293b;
+            border-radius: 28px;
+            padding: 20px 18px 28px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* 语言切换行 (移动端按钮稍大) */
+        .lang-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .lang-btn {
+            background-color: #334155;
+            color: #f1f5f9;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .lang-btn.active {
+            background-color: #0ea5e9;
+            color: white;
+        }
+
+        /* 头部区域 */
+        .title-section {
+            text-align: left;
+            margin-bottom: 18px;
+            border-left: 4px solid #0ea5e9;
+            padding-left: 14px;
+        }
+        .title-section h1 {
+            font-size: 20px;
+            margin: 0 0 4px 0;
+            color: #38bdf8;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .title-section p {
+            font-size: 11px;
+            color: #94a3b8;
+            margin: 0;
+        }
+
+        /* 状态条精简 */
+        .info-chip {
+            background-color: #0f172a;
+            border-radius: 16px;
+            padding: 8px 14px;
+            margin-bottom: 20px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+            border-left: 3px solid #10b981;
+        }
+
+        /* 上传区 + 影像区 */
+        .upload-area {
+            background-color: #0f172a;
+            border-radius: 24px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        .drop-zone {
+            border: 2px dashed #475569;
+            border-radius: 20px;
+            padding: 24px 12px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #111827;
+            transition: 0.2s;
+        }
+        .drop-zone:active {
+            background-color: #1e293b;
+        }
+        .drop-text {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        /* 影像双栏：移动端可横滑或正常flex换行 */
+        .image-pair {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .canvas-card {
+            text-align: center;
+            flex: 1;
+            min-width: 140px;
+        }
+        .canvas-card span {
+            font-size: 11px;
+            color: #94a3b8;
+            display: block;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        canvas {
+            width: 100%;
+            max-width: 180px;
+            height: auto;
+            background: #00000030;
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            background-color: #0a0f1a;
+        }
+        /* 确保canvas实际像素尺寸一致 */
+        #preview-canvas, #cam-canvas {
+            width: 150px;
+            height: 150px;
+            object-fit: contain;
+        }
+
+        /* 主要按钮 */
+        .action-btn {
+            background-color: #0ea5e9;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 60px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            margin-top: 18px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .action-btn:active {
+            transform: scale(0.97);
+            background-color: #0284c7;
+        }
+        .action-btn:disabled {
+            opacity: 0.5;
+            transform: none;
+            background-color: #475569;
+        }
+
+        /* 右侧报告卡片 */
+        .report-card {
+            background-color: #0f172a;
+            border-radius: 24px;
+            padding: 18px;
+            margin-top: 20px;
+            border: 1px solid #334155;
+        }
+        .welcome-placeholder {
+            text-align: center;
+            padding: 32px 12px;
+            color: #64748b;
+        }
+        .welcome-placeholder p {
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .report-detail {
+            display: none;
+        }
+
+        .pred-class {
+            background-color: #7f1d1d;
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fca5a5;
+            margin: 8px 0 12px 0;
+        }
+
+        .prob-bar-container {
+            background-color: #334155;
+            border-radius: 30px;
+            height: 14px;
+            margin: 6px 0 8px 0;
+            overflow: hidden;
+        }
+        .prob-fill {
+            background-color: #f97316;
+            width: 0%;
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+        .prob-fill.high {
+            background-color: #ef4444;
+        }
+        .confidence-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f87171;
+            margin: 0 0 12px 0;
+        }
+
+        .dist-list {
+            background: #0b1120;
+            border-radius: 18px;
+            padding: 10px 12px;
+            margin: 16px 0;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .prob-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        .prob-name {
+            width: 100px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow-x: hidden;
+            text-overflow: ellipsis;
+        }
+        .prob-bar-bg {
+            flex: 1;
+            background: #334155;
+            border-radius: 20px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .prob-bar-fill {
+            background-color: #38bdf8;
+            width: 0%;
+            height: 100%;
+            border-radius: 20px;
+        }
+        .prob-percent {
+            width: 48px;
+            text-align: right;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .suggestion-text {
+            background: #111827;
+            border-left: 4px solid #0ea5e9;
+            padding: 12px 14px;
+            border-radius: 16px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #cbd5e6;
+            margin-top: 16px;
+        }
+        .small-meta {
+            font-size: 10px;
+            color: #7e8ba0;
+            margin-top: 8px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 顶部语言切换 -->
+    <div class="lang-row">
+        <button class="lang-btn" data-lang="zh">中文</button>
+        <button class="lang-btn" data-lang="en">English</button>
+        <button class="lang-btn" data-lang="ko">한국어</button>
+    </div>
+
+    <div class="title-section">
+        <h1 id="ui-title">🩻 AI 骨折影像快诊</h1>
+        <p id="ui-subtitle">10分型 · 即时热力图辅助定位</p>
+    </div>
+
+    <div class="info-chip">
+        <span>📱 移动智能引擎</span>
+        <span>⚡ 本地模拟Grad-CAM</span>
+    </div>
+
+    <div class="upload-area">
+        <div class="drop-zone" id="dropZone">
+            <p class="drop-text" id="dropText">📸 点击选择 X光/CT 影像</p>
+            <input type="file" id="fileInput" accept="image/*" style="display:none">
+        </div>
+        <!-- 双canvas区域 -->
+        <div class="image-pair" id="imagePair" style="display: none;">
+            <div class="canvas-card">
+                <canvas id="previewCanvas" width="224" height="224"></canvas>
+                <span id="origLabel">原始影像</span>
+            </div>
+            <div class="canvas-card">
+                <canvas id="camCanvas" width="224" height="224"></canvas>
+                <span id="camLabel">AI 热力图</span>
+            </div>
+        </div>
+        <button class="action-btn" id="analyzeBtn" disabled>🧠 运行AI诊断 & 生成热力图</button>
+    </div>
+
+    <!-- 诊断结果面板 -->
+    <div class="report-card" id="reportCard">
+        <div id="welcomeBox" class="welcome-placeholder">
+            <div style="font-size: 44px;">🩻📊</div>
+            <p id="welcomeMsg">上传影像，点击诊断获取骨折分型及建议</p>
+        </div>
+        <div id="resultView" class="report-detail">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <strong id="reportTitle" style="color:#38bdf8;">🔍 智能诊断报告</strong>
+                <span id="timeCost" style="font-size:10px; background:#1e293b; padding:2px 8px; border-radius:20px;">-- ms</span>
+            </div>
+            <div><span id="predLabelTxt">核心预测分型</span>：<span id="predClass" class="pred-class">--</span></div>
+            <div style="margin-top: 10px;"><span id="confLabel">Top-1置信度</span></div>
+            <div class="prob-bar-container"><div class="prob-fill" id="confidenceFill"></div></div>
+            <div class="confidence-value" id="confidencePercent">0%</div>
+
+            <div style="margin-top: 8px;"><span id="distTitle">📊 10类骨折概率分布</span></div>
+            <div class="dist-list" id="probListContainer"></div>
+
+            <div class="suggestion-text" id="suggestionBox">
+                <strong id="suggestionTitle">📋 临床辅助意见</strong><br>
+                <span id="suggestionContent">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ----------------------------- 骨折分型数据（三语）--------------------------------
+    const CLASS_DATA = [
+        { en: 'Avulsion fracture', zh: '撕脱性骨折', ko: '견열 골절' },
+        { en: 'Comminuted fracture', zh: '粉碎性骨折', ko: '분쇄 골절' },
+        { en: 'Fracture Dislocation', zh: '骨折脱位', ko: '골절 탈구' },
+        { en: 'Greenstick fracture', zh: '青枝骨折', ko: '불완전 골절' },
+        { en: 'Hairline Fracture', zh: '骨裂 / 发丝骨折', ko: '선상 골절' },
+        { en: 'Impacted fracture', zh: '嵌插骨折', ko: '감입 골절' },
+        { en: 'Longitudinal fracture', zh: '纵行骨折', ko: '종측 골절' },
+        { en: 'Oblique fracture', zh: '斜行骨折', ko: '사선 골절' },
+        { en: 'Pathological fracture', zh: '病理性骨折', ko: '병리적 골절' },
+        { en: 'Spiral Fracture', zh: '螺旋形骨折', ko: '나선형 골절' }
+    ];
+
+    // 专业建议（三语）
+    const SUGGESTIONS_MAP = {
+        'Avulsion fracture': {
+            zh: '热力图集中于韧带附着区域，提示肌腱牵拉所致的撕脱骨折。建议患肢抬高并使用石膏/支具固定，请创伤骨科评估内固定必要性。',
+            en: 'Heatmap highlights ligament attachment zones, suggesting avulsion fracture due to traction. Elevate limb and apply cast/splint. Orthopedic evaluation needed.',
+            ko: '인대 부착 부위 열지도 집중, 인장력에 의한 견열 골절. 사지 거상 및 석고 고정 필요. 정형외과 평가 권장.'
+        },
+        'Comminuted fracture': {
+            zh: '多灶性广泛高亮，提示粉碎性骨折(≥3块)。极高能量损伤，禁止负重，需急诊手术稳定固定。',
+            en: 'Multi-focal highlights indicate comminuted fracture (≥3 fragments). High-energy injury. Zero weight-bearing; urgent surgical stabilization.',
+            ko: '다발성 광범위 고신호, 분쇄 골절(3개 이상). 고에너지 손상. 체중부하 금지, 응급 수술 고정 필요.'
+        },
+        'Fracture Dislocation': {
+            zh: '关节间隙移位伴骨折线，神经血管风险高。切勿自行复位，立即转急诊骨科。',
+            en: 'Joint space displacement with fracture line; high neurovascular risk. Do not reduce manually; transfer to emergency orthopedics.',
+            ko: '관절 간격 전위 및 골절선, 신경혈관 위험 높음. 임의 정복 금지, 응급 정형외과 이송.'
+        },
+        'Greenstick fracture': {
+            zh: '青枝骨折，多见于儿童不完全骨折。需石膏固定3-4周，定期复查防止畸形。',
+            en: 'Greenstick fracture, common in children. Cast immobilization for 3-4 weeks, follow-up X-ray.',
+            ko: '불완전 골절, 소아 청소년 빈발. 3-4주 깁스 고정, 정기적 추시.'
+        },
+        'Hairline Fracture': {
+            zh: '发丝样骨裂，无移位。需严格制动，避免负重，防止进展为完全骨折。',
+            en: 'Hairline crack without displacement. Strict rest, no loading to prevent progression.',
+            ko: '선상 금, 전위 없음. 엄격한 안정 및 체중부하 금지, 완전 골절 진행 방지.'
+        },
+        'Impacted fracture': {
+            zh: '嵌插骨折，断端相互嵌入。相对稳定但需防再次错位，定期影像复查。',
+            en: 'Impacted fracture with telescoping. Relative stability but avoid early mobilization. Follow-up imaging.',
+            ko: '감입 골절, 단단 삽입. 비교적 안정적이나 조기 활동 자제, 정기 검진.'
+        },
+        'Longitudinal fracture': {
+            zh: '纵行骨折线平行骨干，需警惕关节面受累。绝对限制活动，禁负重。',
+            en: 'Longitudinal fracture along the shaft. Beware of joint extension. Strict immobilization, no weight-bearing.',
+            ko: '종축 골절선, 관절면 침범 주의. 절대적 고정 및 체중부하 금지.'
+        },
+        'Oblique fracture': {
+            zh: '斜行骨折，极不稳定，易发生滑动重叠。建议手术内固定或牵引治疗。',
+            en: 'Oblique fracture, highly unstable. Surgical fixation or traction recommended.',
+            ko: '사선 골절, 불안정성. 수술적 내고정 또는 견인 요법 권장.'
+        },
+        'Pathological fracture': {
+            zh: '病理性骨折，骨质异常区破坏导致。需全身系统性检查，治疗原发病。',
+            en: 'Pathological fracture due to underlying bone lesion. Systemic workup and treat primary disease.',
+            ko: '병리적 골절, 기저 골 병변. 전신 검사 및 원인 질환 치료 필요.'
+        },
+        'Spiral Fracture': {
+            zh: '螺旋形骨折，扭转暴力所致，断端锋利易刺伤软组织。多数需手术坚强内固定。',
+            en: 'Spiral fracture from rotational force. Sharp edges risk soft tissue injury. Usually requires rigid internal fixation.',
+            ko: '나선형 골절, 회전력. 날카로운 단부로 연부 조직 손상 위험, 수술적 고정 필요.'
+        }
+    };
+
+    // ----------------------------- DOM 元素 -----------------------------
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const camCanvas = document.getElementById('camCanvas');
+    const ctxOrig = previewCanvas.getContext('2d');
+    const ctxCam = camCanvas.getContext('2d');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const imagePairDiv = document.getElementById('imagePair');
+    const welcomeBox = document.getElementById('welcomeBox');
+    const resultView = document.getElementById('resultView');
+    const probListContainer = document.getElementById('probListContainer');
+    const predClassSpan = document.getElementById('predClass');
+    const confidenceFill = document.getElementById('confidenceFill');
+    const confidencePercentSpan = document.getElementById('confidencePercent');
+    const suggestionContentSpan = document.getElementById('suggestionContent');
+    const timeCostSpan = document.getElementById('timeCost');
+
+    // 全局状态
+    let currentImageData = null;       // 存储ImageData用于热力图生成
+    let lastProbsArray = null;         // 缓存概率分布 [{prob, classObj}]
+    let currentLang = 'zh';            // 默认中文
+
+    // UI元素多语言映射（动态）
+    const uiElements = {
+        title: document.getElementById('ui-title'),
+        subtitle: document.getElementById('ui-subtitle'),
+        dropText: document.getElementById('dropText'),
+        origLabel: document.getElementById('origLabel'),
+        camLabel: document.getElementById('camLabel'),
+        analyzeBtn: analyzeBtn,
+        welcomeMsg: document.getElementById('welcomeMsg'),
+        reportTitle: document.getElementById('reportTitle'),
+        predLabelTxt: document.getElementById('predLabelTxt'),
+        confLabel: document.getElementById('confLabel'),
+        distTitle: document.getElementById('distTitle'),
+        suggestionTitle: document.getElementById('suggestionTitle')
+    };
+
+    const translations = {
+        zh: {
+            title: '🩻 AI 骨折影像快诊',
+            subtitle: '10分型 · 即时热力图辅助定位',
+            dropText: '📸 点击选择 X光/CT 影像',
+            origLabel: '原始影像',
+            camLabel: 'AI 热力图 (Grad-CAM)',
+            analyzeBtn: '🧠 运行AI诊断 & 生成热力图',
+            welcomeMsg: '上传影像，点击诊断获取骨折分型及建议',
+            reportTitle: '🔍 智能诊断报告',
+            predLabel: '核心预测分型',
+            confLabel: 'Top-1 置信度',
+            distTitle: '📊 10类骨折概率分布',
+            suggestionTitle: '📋 临床辅助意见'
+        },
+        en: {
+            title: '🩻 AI Fracture Fast Dx',
+            subtitle: '10-Type · Heatmap Assistant',
+            dropText: '📸 Tap to select X-ray/CT image',
+            origLabel: 'Original',
+            camLabel: 'AI Grad-CAM',
+            analyzeBtn: '🧠 Run AI & Heatmap',
+            welcomeMsg: 'Upload image & tap diagnosis for fracture typing',
+            reportTitle: '🔍 Smart Diagnosis Report',
+            predLabel: 'Top Prediction',
+            confLabel: 'Top-1 Confidence',
+            distTitle: '📊 10-Type Fracture Probability',
+            suggestionTitle: '📋 Clinical Suggestion'
+        },
+        ko: {
+            title: '🩻 AI 골절 빠른 진단',
+            subtitle: '10유형 · 열지도 보조',
+            dropText: '📸 X-ray/CT 이미지 선택',
+            origLabel: '원본 영상',
+            camLabel: 'AI 열지도',
+            analyzeBtn: '🧠 AI 진단 및 열지도 생성',
+            welcomeMsg: '이미지 업로드 후 진단 버튼 클릭',
+            reportTitle: '🔍 스마트 진단 리포트',
+            predLabel: '주요 예측 유형',
+            confLabel: 'Top-1 신뢰도',
+            distTitle: '📊 10가지 골절 확률 분포',
+            suggestionTitle: '📋 임상 권고사항'
+        }
+    };
+
+    function updateUIByLang() {
+        const t = translations[currentLang];
+        if (uiElements.title) uiElements.title.innerText = t.title;
+        if (uiElements.subtitle) uiElements.subtitle.innerText = t.subtitle;
+        if (uiElements.dropText) uiElements.dropText.innerText = t.dropText;
+        if (uiElements.origLabel) uiElements.origLabel.innerText = t.origLabel;
+        if (uiElements.camLabel) uiElements.camLabel.innerText = t.camLabel;
+        if (uiElements.analyzeBtn) uiElements.analyzeBtn.innerText = t.analyzeBtn;
+        if (uiElements.welcomeMsg) uiElements.welcomeMsg.innerText = t.welcomeMsg;
+        if (uiElements.reportTitle) uiElements.reportTitle.innerText = t.reportTitle;
+        if (uiElements.predLabelTxt) uiElements.predLabelTxt.innerText = t.predLabel;
+        if (uiElements.confLabel) uiElements.confLabel.innerText = t.confLabel;
+        if (uiElements.distTitle) uiElements.distTitle.innerText = t.distTitle;
+        if (uiElements.suggestionTitle) uiElements.suggestionTitle.innerText = t.suggestionTitle;
+
+        // 如果已有诊断结果，刷新内容（类名+分布+建议）
+        if (lastProbsArray) {
+            renderDiagnosisByCache();
+        }
+    }
+
+    // 切换语言
+    function setLanguage(lang) {
+        currentLang = lang;
+        updateUIByLang();
+        // 高亮按钮
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            if (btn.getAttribute('data-lang') === lang) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
+
+    // 上传图片处理
+    function handleImageUpload(file) {
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+            previewCanvas.width = 224;
+            previewCanvas.height = 224;
+            camCanvas.width = 224;
+            camCanvas.height = 224;
+            ctxOrig.drawImage(img, 0, 0, 224, 224);
+            // 获取原始像素数据
+            currentImageData = ctxOrig.getImageData(0, 0, 224, 224);
+            // 显示影像区域
+            imagePairDiv.style.display = 'flex';
+            // 清空热力图canvas
+            ctxCam.clearRect(0, 0, 224, 224);
+            analyzeBtn.disabled = false;
+            // 切换结果区域暂时隐藏旧内容，保留欢迎样式
+            welcomeBox.style.display = 'block';
+            resultView.style.display = 'none';
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    // 模拟模型推理 + 热力图生成（基于原始图像的特征）
+    function runInferenceAndHeatmap() {
+        if (!currentImageData) return;
+        const start = performance.now();
+        const pixels = currentImageData.data;
+        let sumGray = 0, edgeAcc = 0;
+        for (let i = 0; i < pixels.length; i += 12) {
+            let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+            let gray = (r+g+b)/3;
+            sumGray += gray;
+            if (i > 12) edgeAcc += Math.abs(gray - ((pixels[i-12]+pixels[i-11]+pixels[i-10])/3));
+        }
+        const seed = Math.sin(sumGray / 10000) * Math.cos(edgeAcc / 200);
+        
+        // 生成softmax概率 (模拟)
+        let rawScores = CLASS_DATA.map((cls, idx) => {
+            let score = Math.abs(Math.sin(seed + idx * 2.718 + 1.23)) * 8 + Math.random() * 1.2;
+            return { cls, score };
+        });
+        let expSum = 0;
+        rawScores.forEach(s => expSum += Math.exp(s.score / 2.5));
+        let probabilities = rawScores.map(s => ({ cls: s.cls, prob: Math.exp(s.score / 2.5) / expSum }));
+        probabilities.sort((a,b) => b.prob - a.prob);
+        lastProbsArray = probabilities;
+        
+        // 生成 Grad-CAM 风格热力图
+        const centerX = 80 + Math.floor(Math.sin(seed) * 65);
+        const centerY = 90 + Math.floor(Math.cos(seed*1.7) * 55);
+        const radius = 40 + (lastProbsArray[0].prob * 42);
+        const camOutput = ctxCam.createImageData(224, 224);
+        for (let y = 0; y < 224; y++) {
+            for (let x = 0; x < 224; x++) {
+                const idx = (y*224 + x)*4;
+                const grayVal = (pixels[idx] + pixels[idx+1] + pixels[idx+2]) / 3;
+                let dx = x - centerX;
+                let dy = y - centerY;
+                let dist = Math.sqrt(dx*dx+dy*dy) + Math.sin(x*0.1)*Math.cos(y*0.1)*3;
+                let weight = 0;
+                if (dist < radius) weight = (1 - dist/radius) * 0.85;
+                else if (dist < radius*1.8) weight = (1 - dist/(radius*1.8)) * 0.28;
+                let r = 0, g = 0, b = 0;
+                if (weight > 0.65) { r = 255; g = Math.floor((1-weight)/0.35*255); }
+                else if (weight > 0.35) { r = Math.floor((weight-0.35)/0.3*255); g = 255; }
+                else if (weight > 0.08) { g = 255; b = Math.floor((1-(weight-0.08)/0.27)*255);}
+                else { g = Math.floor(weight/0.08*255); b = 255; }
+                const alpha = 0.58;
+                camOutput.data[idx] = r * alpha + grayVal * (1-alpha);
+                camOutput.data[idx+1] = g * alpha + grayVal * (1-alpha);
+                camOutput.data[idx+2] = b * alpha + grayVal * (1-alpha);
+                camOutput.data[idx+3] = 255;
+            }
+        }
+        ctxCam.putImageData(camOutput, 0, 0);
+        const elapsed = Math.floor(performance.now() - start);
+        timeCostSpan.innerText = elapsed + " ms";
+        
+        // 渲染诊断结果UI
+        renderDiagnosisByCache();
+        // 显示结果区，隐藏欢迎
+        welcomeBox.style.display = 'none';
+        resultView.style.display = 'block';
+    }
+    
+    function renderDiagnosisByCache() {
+        if (!lastProbsArray) return;
+        const top = lastProbsArray[0];
+        const topProb = top.prob;
+        const percent = (topProb * 100).toFixed(1);
+        const className = top.cls[currentLang] || top.cls.en;
+        predClassSpan.innerText = `${className} (${top.cls.en})`;
+        confidenceFill.style.width = `${percent}%`;
+        if (topProb > 0.4) confidenceFill.classList.add('high');
+        else confidenceFill.classList.remove('high');
+        confidencePercentSpan.innerText = `${percent}%`;
+        
+        // 渲染概率列表
+        probListContainer.innerHTML = '';
+        lastProbsArray.forEach(item => {
+            const nameCurr = item.cls[currentLang];
+            const probVal = (item.prob * 100).toFixed(1);
+            const row = document.createElement('div');
+            row.className = 'prob-item';
+            row.innerHTML = `
+                <div class="prob-name" title="${nameCurr}">${nameCurr}</div>
+                <div class="prob-bar-bg"><div class="prob-bar-fill" style="width: ${item.prob*100}%"></div></div>
+                <div class="prob-percent">${probVal}%</div>
+            `;
+            probListContainer.appendChild(row);
+        });
+        
+        // 获取对应语言的建议
+        const engKey = top.cls.en;
+        const suggestionObj = SUGGESTIONS_MAP[engKey] || SUGGESTIONS_MAP['Hairline Fracture'];
+        suggestionContentSpan.innerText = suggestionObj[currentLang] || suggestionObj.en;
+    }
+    
+    // ---------- 事件绑定 ----------
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleImageUpload(e.target.files[0]);
+    });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.backgroundColor = '#1e293b'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.backgroundColor = '#111827'; });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.backgroundColor = '#111827';
+        if (e.dataTransfer.files.length) handleImageUpload(e.dataTransfer.files[0]);
+    });
+    
+    analyzeBtn.addEventListener('click', () => {
+        if (!currentImageData) return;
+        runInferenceAndHeatmap();
+    });
+    
+    // 语言按钮
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const lang = btn.getAttribute('data-lang');
+            if (lang) setLanguage(lang);
+        });
+    });
+    
+    // 初始化默认中文
+    setLanguage('zh');
+    // 确保canvas初始化占位可用
+    previewCanvas.width = 224; previewCanvas.height = 224;
+    camCanvas.width = 224; camCanvas.height = 224;
+    ctxOrig.fillStyle = '#111827'; ctxOrig.fillRect(0,0,224,224);
+    ctxCam.fillStyle = '#0f172a'; ctxCam.fillRect(0,0,224,224);
+</script>
+</body>
+</html>
